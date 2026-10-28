@@ -1,6 +1,0 @@
-{
-  "category": "technical_outage",
-  "priority": "p1",
-  "requires_escalation": false,
-  "summary": "Triaged ticket_05_subtle_degradation (technical_outage)."
-}

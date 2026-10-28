@@ -9,7 +9,7 @@ A structured, reproducible evaluation and hill-climbing framework for Gemini mod
 ## Why Use `gemini-eval` Instead of Ad-Hoc Throwaway Eval Scripts in Jetski?
 
 * **Prevents Overfitting (Strict Train/Test Isolation):**
-  * **`gemini-eval`:** Enforces a stratified `train` / `test` split (e.g., 60/40) at the runner level ([`report/runner-scaffold.py`](./report/runner-scaffold.py) and [`example-migration/run-eval.py`](./example-migration/run-eval.py)). Jetski only inspects `train` failures when iterating on prompts or model configs, keeping `test` strictly held-out.
+  * **`gemini-eval`:** Enforces a stratified `train` / `test` split (e.g., 60/40) at the runner level ([`report/runner-scaffold.py`](./report/runner-scaffold.py)). Jetski only inspects `train` failures when iterating on prompts or model configs, keeping `test` strictly held-out.
   * **Throwaway Code:** Usually evaluates and inspects all cases together, causing the agent to tune prompts to pass specific test cases (memorizing the test set).
 
 * **Eliminates Judge Bias (Blind Pairwise & Anti-Self-Bias):**
@@ -38,18 +38,19 @@ A structured, reproducible evaluation and hill-climbing framework for Gemini mod
 
 * **Playbooks:**
   * [`build-eval.md`](./build-eval.md) — End-to-end guide for designing datasets, deterministic graders, LLM judges, and building `run-eval.py`.
-  * [`eval-hillclimb.md`](./eval-hillclimb.md) — Iterative quality hill-climbing workflow on `train` while guarding against `test` regression.
-    * **Pre-Flight Calibration:** Establishes the baseline noise floor (`± CI` half-width across `n × reps`), headroom, and harness integrity (`--approve-harness`) before round 1.
-    * **Isolated Analyzer Subagent (`analyze` $\rightarrow$ `apply` $\rightarrow$ `run` $\rightarrow$ `record`):** Spawns a fresh analyzer subagent each round that reads *only* `train` failure traces (`traces/<id>_rep<k>.json`) while the main session sees only aggregate scores—preventing `test` data leakage.
-    * **Single-Hypothesis Root Fixes & De-Fluffing:** Proposes one generalizable behavioral fix per round (prompt, tool schema, `thinking_config`, or code) sized to clear the noise floor, strips non-operational prompt fluff, and records a reversible `vN/change.patch`.
-    * **Plateau & Guardrail Stopping Rules:** Continues until the primary metric plateaus for $K \ge 3$ rounds or any guardrail metric regresses outside noise; evaluates the final winner on the held-out `test` split.
-  * [`cost-hillclimb.md`](./cost-hillclimb.md) — Ordered optimization search to minimize cost/latency while holding quality within noise of baseline:
-    * **Step 0 — Caching Health Verification:** Audits implicit/explicit context caching (`cachedContentTokenCount`) before and after every lever change so cache invalidation isn't mistaken for model cost.
-    * **Step 1 — Legacy Prompt & Config Audit:** Strips dated prompt scaffolding and legacy parameters that inflate output/thinking tokens or mis-rank newer Gemini models (`gemini-3.8-flash`, `gemini-4-pro`).
-    * **Step 2 — Model × Thinking/Effort Staircase Walk:** Instead of sweeping a full factorial grid, enters at the top cost-plausible tier at `LOW` thinking/effort; steps *down* a model tier on pass, *right* (higher effort) on fail, and prunes cells projected above the incumbent's cost $c^*$.
-    * **Step 3 & 4 — Frozen-Model Prompt Climb & Down-Left Re-Probe:** Runs prompt hill-climbing on the winning model, then re-probes one cell down-left (one tier cheaper or one thinking notch lower) since cleaner prompts often unlock cheaper model tiers.
-    * **Step 5 — Pre-Registered Joint Confirm (`n >= 3`):** Validates the final `(model, prompt, thinking_config)` tuple across $n \ge 3$ fresh runs against three pre-registered adoption gates: **Quality Band**, **Cost Margin**, and **Verified Mechanism**.
-  * [`eval-audit.md`](./eval-audit.md) — Auditing existing evaluation suites for data leakage, judge bias, and grader gaps.
+  * [`eval-hillclimb.md`](./eval-hillclimb.md) — Automated loop to iteratively improve quality scores without overfitting:
+    * **Measure the Noise Floor First:** Before changing anything, runs the baseline to see how much scores fluctuate naturally—so the agent only keeps edits that beat random variance.
+    * **Blind the Agent to Test Data (Subagent Isolation):** Each round, a fresh analyzer subagent reads *only* failing `train` transcripts to diagnose root causes. The main agent never sees `test` transcripts, making it impossible to "cheat" or memorize test answers.
+    * **One Root-Cause Fix per Round:** Instead of guessing or piling on vague "be careful" prompt fluff, the agent tests **one** concrete change at a time (prompt rule, tool definition, or `thinking_config`) and saves a clean git diff (`vN/change.patch`) so losing ideas are easily reverted.
+    * **Automatic Stopping & Guardrails:** Keeps iterating until scores plateau for 3+ rounds or a guardrail metric (like latency or compliance) drops, then judges the final winner strictly on the unseen `test` split.
+  * [`cost-hillclimb.md`](./cost-hillclimb.md) — Structured search to cut API cost and latency while keeping baseline quality:
+    * **Fix Free Wins First (Caching & Prompt Bloat):** Verifies context caching is working and strips legacy prompt instructions that force newer Gemini models (`gemini-3.8-flash`, `gemini-4-pro`) to waste output/thinking tokens.
+    * **Smart "Staircase Walk" Instead of Brute-Force Grid:** Rather than paying to test every combination of model $\times$ thinking budget, starts at a strong model with `LOW` thinking and steps **down** to cheaper models when quality passes, or **right** to higher thinking when quality fails—skipping expensive configurations that can't win.
+    * **Re-Test Cheaper Tiers After Prompt Tuning:** Once the prompt is tuned on the winning model, steps down one more notch (e.g., to `gemini-3.8-flash-lite` or lower thinking), since a cleaner prompt often unlocks a cheaper model that failed earlier.
+    * **3-Run Final Confirmation:** Re-runs the winning setup 3+ times on held-out `test` cases to prove cost dropped, quality held, and the expected token/tool savings actually occurred.
+  * [`eval-audit.md`](./eval-audit.md) — Health check to verify an evaluation suite is trustworthy before you spend time and money optimizing against it:
+    * **What it does:** Inspects your dataset, runner, and graders for hidden flaws—such as ground-truth labels copied from the old model's unverified outputs, API/timeout crashes falsely scored as `0` model failures, silent model fallbacks, or judges grading their own outputs.
+    * **Benefits:** Stops you from optimizing against a "broken ruler"—ensuring a better model isn't unfairly penalized for disagreeing with old model mistakes, separating infra errors from model quality, and confirming the eval has enough statistical signal to detect real improvements.
 * **Python Runner & Reporting Engine:**
   * *Why pre-built executables are needed:* Markdown instructions alone leave plumbing (async concurrency, retry logic, CI math, artifact schemas, and HTML bundling) up to the LLM to reinvent every session—wasting tokens and introducing bugs. Pre-built Python executables lock down the deterministic infrastructure so Jetski only writes the task-specific model call and grading logic (`TODO` slots).
   * [`report/runner-scaffold.py`](./report/runner-scaffold.py) — Reusable Python evaluation harness (`run-eval.py` template).
@@ -58,8 +59,6 @@ A structured, reproducible evaluation and hill-climbing framework for Gemini mod
     * **Benefits:** Eliminates fragile custom plotting scripts; produces a standardized, interactive side-by-side trace viewer and hill-climb trajectory dashboard in one command.
   * [`report/SCHEMA.md`](./report/SCHEMA.md) — Strict contract for `results.jsonl`, `errors.jsonl`, `traces/*.json`, and `scores.tsv`.
     * **Benefits:** Ensures the runner (`run-eval.py`), analyzer subagents, and report bundler (`build-report-lite.py`) interoperate seamlessly across every round.
-* **Reference Example:**
-  * [`example-migration/run-eval.py`](./example-migration/run-eval.py) — Complete reference implementation in Python showing how a flow plugs into `runner-scaffold.py`.
 
 ---
 

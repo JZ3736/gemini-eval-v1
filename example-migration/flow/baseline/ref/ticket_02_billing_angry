@@ -1,6 +1,0 @@
-{
-  "category": "billing_inquiry",
-  "priority": "p0",
-  "requires_escalation": true,
-  "summary": "Triaged ticket_02_billing_angry (billing_inquiry)."
-}

@@ -1,6 +1,0 @@
-{
-  "category": "security_vulnerability",
-  "priority": "p0",
-  "requires_escalation": true,
-  "summary": "Triaged ticket_03_security (security_vulnerability)."
-}
