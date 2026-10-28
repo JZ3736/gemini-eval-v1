@@ -16,28 +16,32 @@ A structured, reproducible evaluation and hill-climbing framework for Gemini mod
   * **`gemini-eval`:** Randomizes candidate order (`Response A` vs. `Response B`) during pairwise judging so the judge cannot tell which output is `baseline` vs. `v1`, and enforces an anti-self-bias rule (never using the model-under-test as its own judge).
   * **Throwaway Code:** Often grades outputs in the same context window or passes unblinded labels, introducing position bias and self-preference bias.
 
-* **Statistical Rigor & Noise-Floor Math:**
-  * **`gemini-eval`:** Automatically computes 95% confidence intervals (`± CI`), multi-rep variance (`--reps`), and per-category agreement matrices across runs in [`report/runner-scaffold.py`](./report/runner-scaffold.py) to separate real quality gains from LLM sampling noise.
-  * **Throwaway Code:** Relies on single-run point averages without confidence intervals, leading to chasing random variance during hill-climbing.
+* **Separates Real Wins from Random Luck (Noise-Floor Math):**
+  * **`gemini-eval`:** Because LLMs can give slightly different answers on every run, [`report/runner-scaffold.py`](./report/runner-scaffold.py) supports running each case multiple times (`--reps`) and calculates a margin of error (`± CI`). You immediately know if a `+3%` score jump is a real improvement or just random luck.
+  * **Throwaway Code:** Looks at a single-run average with no margin of error, tricking you into keeping prompt changes that only won by chance.
 
-* **Layered Deterministic Code Graders + Calibrated LLM Judge:**
-  * **`gemini-eval`:** Combines hard programmatic gates (JSON schema validation, truncation detection via `finishReason == "MAX_TOKENS"`, field compliance rules, and bipartite item matching) with structured LLM rubric/pairwise judges ([`build-eval.md`](./build-eval.md)).
-  * **Throwaway Code:** Ad-hoc scripts frequently miss edge cases like silent output truncations, ungrounded quotes, or subtle schema drift.
+* **Code Checks for Facts + AI Judge for Nuance:**
+  * **`gemini-eval`:** Uses strict Python code to check objective rules (Did the output get cut off at `MAX_TOKENS`? Is the JSON valid? Is the quote actually in the transcript?) and only uses an AI Judge for subjective quality ([`build-eval.md`](./build-eval.md)).
+  * **Throwaway Code:** Relies on an AI Judge to grade everything or uses quick scripts that miss cut-off responses, hallucinated quotes, or broken JSON fields.
 
-* **Context Window Hygiene & Scalable Execution:**
-  * **`gemini-eval`:** Runs model and judge calls concurrently in Python (`run-eval.py`), persists standardized artifacts (`results.jsonl`, `errors.jsonl`, and per-case `traces/*.json` per [`report/SCHEMA.md`](./report/SCHEMA.md)), and spawns isolated analyzer subagents only on failing `train` traces ([`eval-hillclimb.md`](./eval-hillclimb.md)).
-  * **Throwaway Code:** Stuffing large datasets and transcripts directly into an agent session bloats the context window, degrades reasoning quality, and cannot scale to dozens of long-context cases.
+* **Fast Parallel Runs Without Overloading the Agent's Memory:**
+  * **`gemini-eval`:** Runs all test cases in parallel in Python (`run-eval.py`), saves outputs to disk (`results.jsonl` and `traces/*.json` per [`report/SCHEMA.md`](./report/SCHEMA.md)), and only asks a helper subagent to read the specific `train` cases that failed ([`eval-hillclimb.md`](./eval-hillclimb.md)).
+  * **Throwaway Code:** Pastes dozens of long transcripts directly into one chat window—slowing down the agent, overflowing its memory, and hurting reasoning quality.
 
-* **Accurate Telemetry, Cost Separation & Visual Reporting:**
-  * **`gemini-eval`:** Tracks exact API token usage (`promptTokenCount`, `candidatesTokenCount`, `thoughtsTokenCount`), latency, and separates pure production model cost from evaluation judge cost—compiling every round (`baseline` $\rightarrow$ `v1` $\rightarrow$ `v2`) into [`trajectory/scores.tsv`](./report/SCHEMA.md) and a self-contained [`report.html`](./report/build-report-lite.py) via [`report/build-report-lite.py`](./report/build-report-lite.py).
-  * **Throwaway Code:** Produces inconsistent console logs that cannot be compared across hill-climb iterations or shared as auditable migration reports.
+* **Exact Cost Tracking & One-Click Visual Report (`report.html`):**
+  * **`gemini-eval`:** Automatically records input, output, and thinking tokens, latency, and exact dollar cost per call (separating your app's model cost from the AI Judge's cost), then builds an interactive [`report.html`](./report/build-report-lite.py) via [`report/build-report-lite.py`](./report/build-report-lite.py) to compare every round (`baseline` $\rightarrow$ `v1` $\rightarrow$ `v2`).
+  * **Throwaway Code:** Prints messy terminal text that doesn't separate judge cost from model cost and can't be shared with customers as a clean report.
 
 ---
 
 ## Core Components
 
 * **Playbooks:**
-  * [`build-eval.md`](./build-eval.md) — End-to-end guide for designing datasets, deterministic graders, LLM judges, and building `run-eval.py`.
+  * [`build-eval.md`](./build-eval.md) — Step-by-step guide to build a working `run-eval.py` from scratch when a customer doesn't have an eval yet:
+    * **Scope One Flow & Build the Dataset:** Picks one clear task to test, gathers 15–50 real examples (from logs or synthetic edge cases), verifies ground-truth answers are accurate, and locks a random `train` / `test` split.
+    * **Pick the Simplest Grader That Works:** Uses fast Python checks first (exact match, regex, JSON schema, unit tests) and only adds an AI Judge (with a clear rubric or blind A/B comparison) when grading subjective quality.
+    * **Estimate Cost Before Spending Money:** Runs 1–2 pilot cases first to measure token usage and shows the user the exact dollar estimate before running the full dataset.
+    * **Wire Up `run-eval.py` & Generate `report.html`:** Plugs the customer's prompt/model call and grader into [`report/runner-scaffold.py`](./report/runner-scaffold.py), runs the `baseline`, and compiles the interactive HTML report.
   * [`eval-hillclimb.md`](./eval-hillclimb.md) — Automated loop to iteratively improve quality scores without overfitting:
     * **Measure the Noise Floor First:** Before changing anything, runs the baseline to see how much scores fluctuate naturally—so the agent only keeps edits that beat random variance.
     * **Blind the Agent to Test Data (Subagent Isolation):** Each round, a fresh analyzer subagent reads *only* failing `train` transcripts to diagnose root causes. The main agent never sees `test` transcripts, making it impossible to "cheat" or memorize test answers.
@@ -52,13 +56,13 @@ A structured, reproducible evaluation and hill-climbing framework for Gemini mod
     * **What it does:** Inspects your dataset, runner, and graders for hidden flaws—such as ground-truth labels copied from the old model's unverified outputs, API/timeout crashes falsely scored as `0` model failures, silent model fallbacks, or judges grading their own outputs.
     * **Benefits:** Stops you from optimizing against a "broken ruler"—ensuring a better model isn't unfairly penalized for disagreeing with old model mistakes, separating infra errors from model quality, and confirming the eval has enough statistical signal to detect real improvements.
 * **Python Runner & Reporting Engine:**
-  * *Why pre-built executables are needed:* Markdown instructions alone leave plumbing (async concurrency, retry logic, CI math, artifact schemas, and HTML bundling) up to the LLM to reinvent every session—wasting tokens and introducing bugs. Pre-built Python executables lock down the deterministic infrastructure so Jetski only writes the task-specific model call and grading logic (`TODO` slots).
-  * [`report/runner-scaffold.py`](./report/runner-scaffold.py) — Reusable Python evaluation harness (`run-eval.py` template).
-    * **Benefits:** Guarantees identical CLI flags (`--round`, `--split`, `--reps`, `--case`), parallel worker execution, served-model identity checks, truncation detection, 95% confidence interval (`± CI`) math, and append-only `trajectory/scores.tsv` logging without rewriting boilerplate.
-  * [`report/build-report-lite.py`](./report/build-report-lite.py) — Zero-dependency Python HTML bundler that compiles `metrics.md`, `narrative.md`, `scores.tsv`, and `traces/` into a single self-contained `report.html`.
-    * **Benefits:** Eliminates fragile custom plotting scripts; produces a standardized, interactive side-by-side trace viewer and hill-climb trajectory dashboard in one command.
-  * [`report/SCHEMA.md`](./report/SCHEMA.md) — Strict contract for `results.jsonl`, `errors.jsonl`, `traces/*.json`, and `scores.tsv`.
-    * **Benefits:** Ensures the runner (`run-eval.py`), analyzer subagents, and report bundler (`build-report-lite.py`) interoperate seamlessly across every round.
+  * *Why pre-built scripts are needed:* Without them, Jetski would have to write parallel execution, retry logic, error handling, and HTML report code from scratch every time—wasting time and introducing bugs. With these ready-made scripts, Jetski only fills in 3 simple functions (`load_cases`, `run_case`, `grade_case`).
+  * [`report/runner-scaffold.py`](./report/runner-scaffold.py) — Ready-made template for `run-eval.py`.
+    * **Benefits:** Handles running cases in parallel, automatic retries, crash-safe resume (picks up where it left off if interrupted), cut-off output detection, and margin-of-error (`± CI`) math out of the box.
+  * [`report/build-report-lite.py`](./report/build-report-lite.py) — One-command HTML report builder.
+    * **Benefits:** Turns raw scores and transcripts into a single, shareable `report.html` file where you can view score trends across rounds and click into side-by-side model outputs—no extra packages or web server needed.
+  * [`report/SCHEMA.md`](./report/SCHEMA.md) — Standard file format rules for scores (`results.jsonl`), transcripts (`traces/`), and logs (`scores.tsv`).
+    * **Benefits:** Keeps every file in a predictable format so the runner, the analyzer subagent, and the HTML report builder always work together without breaking.
 
 ---
 
