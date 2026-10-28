@@ -87,38 +87,10 @@ A structured, reproducible evaluation and hill-climbing framework for Gemini mod
 
 ---
 
-## Next Step: Packaging as a Portable, Shareable Skill
+## Next Step: Package as a Built-In Skill
 
-To enable any AI engineer to run standardized, reproducible customer evaluations out-of-the-box without copying files into customer repos:
+Right now, engineers clone `gemini-eval` into their workspace. To make it even easier so **any AI engineer can use it automatically across all customer projects without cloning it each time**:
 
-* **1. Add a Root `SKILL.md` Entrypoint:**
-  * Create `gemini-eval/SKILL.md` with YAML frontmatter (`name: gemini-eval`, `description: ...`) that routes user intents (`build`, `hillclimb`, `cost`, `audit`) to [`build-eval.md`](./build-eval.md), [`eval-hillclimb.md`](./eval-hillclimb.md), [`cost-hillclimb.md`](./cost-hillclimb.md), and [`eval-audit.md`](./eval-audit.md).
-  * Instruct the agent to resolve [`report/runner-scaffold.py`](./report/runner-scaffold.py) and [`report/build-report-lite.py`](./report/build-report-lite.py) relative to the installed skill directory while writing all run artifacts to the customer's workspace (`.antigravity/hillclimb/<flow>/`).
-
-* **2. Bundle as a Self-Contained Skill Directory:**
-  * Keep the directory structure atomic and zero-dependency (standard Python + `google-genai` SDK):
-    ```text
-    gemini-eval/
-    ├── SKILL.md                  # Skill entrypoint & sub-command router
-    ├── build-eval.md             # Eval creation playbook
-    ├── eval-hillclimb.md         # Quality hill-climb playbook
-    ├── cost-hillclimb.md         # Cost/latency staircase playbook
-    ├── eval-audit.md             # Eval suite audit playbook
-    ├── report/
-    │   ├── runner-scaffold.py    # Reusable Python eval harness
-    │   ├── build-report-lite.py  # Zero-dependency HTML report bundler
-    │   └── SCHEMA.md             # Artifact & JSONL data contract
-    └── references/
-        ├── pricing.md            # Token rate card & cost_usd formulas
-        ├── prompt-audit.md       # Pre-migration prompt & config audit
-        └── cost-optimization.md  # Caching & no-eval cost checklist
-    ```
-
-* **3. Distribute Across Agent Environments:**
-  * **Global Engineer Install (Antigravity / Jetski):** Install once into `~/.gemini/config/skills/gemini-eval/` (or symlink via git) so the skill is automatically discovered across all customer workspaces on the engineer's machine.
-  * **Team / Customer Repo Distribution:** Publish to a shared Git repository so any engineer can install it in one command (`git clone` into `~/.gemini/config/skills/gemini-eval/` or `.agent/skills/gemini-eval/`).
-
-* **4. Standardized Customer Delivery Workflow:**
-  * **Build:** Point Jetski at the customer's codebase and dataset $\rightarrow$ generates `run-eval.py` from `runner-scaffold.py` with stratified `train`/`test` splits and calibrated graders.
-  * **Climb:** Run autonomous quality or cost hill-climbing $\rightarrow$ logs auditable per-round diffs (`vN/change.patch`), token/cost telemetry (`results.jsonl`), and full transcripts (`traces/`).
-  * **Hand Off:** Run `build-report-lite.py` to hand the customer a single self-contained `report.html`, `narrative.md`, and clean git patches ready for production PR review.
+* **1. Add a `SKILL.md` Entrypoint:** Add a root `SKILL.md` file with YAML frontmatter (`name: gemini-eval`, `description: ...`) that points Jetski to the playbooks (`.md`) and Python scripts (`report/*.py`) inside this folder.
+* **2. Install Once Globally:** Drop or `git clone` the folder into `~/.gemini/config/skills/gemini-eval/`. Jetski will automatically detect `gemini-eval` as a built-in skill in every workspace.
+* **3. Share with the Team:** Publish the skill repo so any engineer can install it with one command and deliver standardized customer evaluations (`report.html`, `narrative.md`, and `change.patch`) out of the box.
