@@ -6,6 +6,11 @@ A structured, reproducible evaluation and hill-climbing framework for Gemini mod
   * **Antigravity / Jetski Native Tooling:** Replaced Claude Code tool conventions with Jetski's native tools (`ask_question`, background `run_command` with reactive wakeup, `invoke_subagent` for isolated `train`-only round analysis, and `.antigravity/hillclimb/<flow>/` state paths).
   * **Python & `google-genai` SDK Native:** Ported the Node.js (`.mjs`) runner scaffold and HTML report bundler to zero-dependency **Python** ([`report/runner-scaffold.py`](./report/runner-scaffold.py), [`report/build-report-lite.py`](./report/build-report-lite.py)) wired to the Google GenAI SDK (`google-genai`), Gemini model families (`gemini-4-pro`, `gemini-3.8-flash`, `gemini-2.5-*`), and Gemini API parameters (`thinking_config` / `thinking_level`, `response_schema`, `finishReason == "MAX_TOKENS"`, `thoughtsTokenCount`, and `cachedContentTokenCount`).
 
+* **How to use `gemini-eval`:**
+  * **1. Clone `gemini-eval` into Your Workspace:** Run `git clone https://github.com/JZ3736/gemini-eval-v1.git gemini-eval` in your Antigravity / Jetski workspace (`gemini-eval/` stays untouched as your reusable toolkit).
+  * **2. Point to the Customer's Agent Repo or Dataset Folder:** Never copy customer code into `gemini-eval/`. Instead, keep the customer's work in its own sibling folder—either **clone/open the customer's agent repo as-is** (so its `.venv`, imports, and `git diff` patches stay intact) or **create a lightweight case folder** (like `case-acroynm/`) if they only provided datasets and prompts.
+  * **3. Ask Jetski to Run the Eval Using `gemini-eval`:** Tell Jetski: *"Read the customer folder/repo at `<customer-folder>` and use the `gemini-eval` framework to run the eval (e.g., migrating to `gemini-3.8-flash`)."* Jetski automatically follows `gemini-eval/` to build `run-eval.py` inside the customer folder, run the evaluation / hill-climb, and generate `report.html`, `narrative.md`, and clean `change.patch` diffs.
+
 ## Why Use `gemini-eval` Instead of Ad-Hoc Throwaway Eval Scripts in Jetski?
 
 * **Prevents Overfitting (Strict Train/Test Isolation):**
