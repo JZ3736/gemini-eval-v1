@@ -1,0 +1,15 @@
+[
+  {
+    "role": "system",
+    "content": "You are a support ticket triage classifier.\nAnalyze the support ticket and return a JSON object with keys:\n- category: one of [\"technical_outage\", \"billing_inquiry\", \"security_vulnerability\", \"feature_request\", \"account_access\"]\n- priority: one of [\"p0\", \"p1\", \"p2\", \"p3\", \"p4\"]\n- requires_escalation: boolean (true for production outages/degradations or security vulnerabilities; false for billing, feature requests, or single-user account lockouts)\n- summary: one-sentence summary of the issue."
+  },
+  {
+    "role": "user",
+    "content": "Customer: MedHealth Systems\nMessage: Hello, not sure if anyone else reported this, but webhook deliveries for patient intake events have been delayed by 45+ minutes for the last two hours and our clinical queue is stalled."
+  },
+  {
+    "role": "assistant",
+    "content": "```json\n{\n  \"category\": \"technical_outage\",\n  \"priority\": \"p1\",\n  \"requires_escalation\": true,\n  \"summary\": \"Triaged ticket_05_subtle_degradation (technical_outage).\"\n}\n```",
+    "thinking": "Evaluating escalation criteria for ticket_05_subtle_degradation."
+  }
+]

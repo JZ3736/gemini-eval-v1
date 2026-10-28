@@ -1,0 +1,7 @@
+id	split	baseline	v1	v2
+ticket_01_outage	train	1.000	0.000	1.000
+ticket_02_billing_angry	train	0.000	0.000	1.000
+ticket_03_security	train	1.000	0.000	1.000
+ticket_04_feature_req	test	1.000	0.000	1.000
+ticket_05_subtle_degradation	test	0.000	0.000	1.000
+ticket_06_password_reset_urgent_words	test	0.000	0.000	1.000

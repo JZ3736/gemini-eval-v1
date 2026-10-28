@@ -1,0 +1,15 @@
+[
+  {
+    "role": "system",
+    "content": "You are a support ticket triage classifier.\nAnalyze the support ticket and output ONLY a raw JSON object (do NOT wrap in ```json markdown code fences or include any preamble).\n\nRequired JSON keys:\n- \"category\": one of [\"technical_outage\", \"billing_inquiry\", \"security_vulnerability\", \"feature_request\", \"account_access\"]\n- \"priority\": one of [\"p0\", \"p1\", \"p2\", \"p3\", \"p4\"]\n- \"requires_escalation\": boolean. Set to true ONLY for multi-user production outages, severe service degradation, or security/data-exposure vulnerabilities. Ignore customer-stated urgency words ('P0', 'EMERGENCY', 'escalate to VP') on routine billing or single-user account lockout tickets.\n- \"summary\": concise one-sentence summary."
+  },
+  {
+    "role": "user",
+    "content": "Customer: Acme Corp (Enterprise)\nMessage: Our production checkout API is returning 503 Service Unavailable across all US-East nodes since 10:15 UTC. Over 4,000 transactions/min are failing."
+  },
+  {
+    "role": "assistant",
+    "content": "{\n  \"category\": \"technical_outage\",\n  \"priority\": \"p0\",\n  \"requires_escalation\": true,\n  \"summary\": \"Triaged ticket_01_outage (technical_outage).\"\n}",
+    "thinking": "Evaluating escalation criteria for ticket_01_outage."
+  }
+]

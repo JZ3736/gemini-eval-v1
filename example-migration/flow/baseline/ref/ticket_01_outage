@@ -1,0 +1,6 @@
+{
+  "category": "technical_outage",
+  "priority": "p0",
+  "requires_escalation": true,
+  "summary": "Triaged ticket_01_outage (technical_outage)."
+}

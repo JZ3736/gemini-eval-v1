@@ -1,0 +1,51 @@
+# Environment variables & API keys
+.env
+.env.*
+!.env.example
+*.env
+.envrc
+
+# Google Cloud / Vertex AI / Service Account credentials
+*service-account*.json
+*service_account*.json
+*credentials*.json
+*client_secret*.json
+application_default_credentials.json
+gcloud-credentials.json
+*.pem
+*.key
+*.p12
+*.pfx
+*.keystore
+*secret*
+!*secret*.md
+
+# Antigravity / Jetski / Local runtime state & caches
+.antigravity/
+.gemini/
+.claude/
+
+# Python caches & virtual environments
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+env/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Node / misc (if any local tooling is used)
+node_modules/
+
+# OS & Editor files
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+*.swp
+*.swo
+*~
+.vscode/
+.idea/
