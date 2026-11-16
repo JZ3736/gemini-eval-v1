@@ -1,42 +1,35 @@
-# `gemini-eval` Framework
+# `gemini-eval` Playbook - Under Review (MVP)
 
-A structured, reproducible evaluation and hill-climbing framework for Gemini model migrations, prompt optimization, and cost/latency tuning.
+A coding-agent-driven, reproducible evaluation and hill-climbing playbook for Gemini model migrations, prompt optimization, and cost/latency tuning.
 
-* **How `gemini-eval` was built:** Adapted directly from the [`anthropic-eval`](../anthropic-eval) framework ([`anthropics/skills/skills/claude-api/shared/evals`](https://github.com/anthropics/skills/tree/main/skills/claude-api/shared/evals)), preserving 100% of its evaluation science, methodologies, and directory/artifact structure while tailoring it for **Antigravity / Jetski** and the **Gemini ecosystem** (see [`references/diff.md`](./references/diff.md) for the full conversion map):
-  * **Antigravity / Jetski Native Tooling:** Replaced Claude Code tool conventions with Jetski's native tools (`ask_question`, background `run_command` with reactive wakeup, `invoke_subagent` for isolated `train`-only round analysis, and `.antigravity/hillclimb/<flow>/` state paths).
-  * **Python & `google-genai` SDK Native:** Ported the Node.js (`.mjs`) runner scaffold and HTML report bundler to zero-dependency **Python** ([`report/runner-scaffold.py`](./report/runner-scaffold.py), [`report/build-report-lite.py`](./report/build-report-lite.py)) wired to the Google GenAI SDK (`google-genai`), Gemini model families (`gemini-4-pro`, `gemini-3.8-flash`, `gemini-2.5-*`), and Gemini API parameters (`thinking_config` / `thinking_level`, `response_schema`, `finishReason == "MAX_TOKENS"`, `thoughtsTokenCount`, and `cachedContentTokenCount`).
+> **Status (MVP):** This playbook is currently an **MVP (Minimum Viable Product)**—more iterations and refinements are expected as we test it across real-world customer engagements and incorporate field feedback.
 
-* **How to use `gemini-eval`:**
-  * **1. Clone `gemini-eval` Once into Your Workspace:** Run `git clone https://github.com/JZ3736/gemini-eval-v1.git gemini-eval` in your Antigravity / Jetski workspace (`gemini-eval/` stays untouched as your reusable toolkit).
-  * **2. Set Up a Separate Customer Folder (Prompt/Data or Full Repo):** Never copy customer files into `gemini-eval/`. Keep the customer's work in its own sibling folder—either a **lightweight case folder** with their prompt + dataset (like `case-acroynm/`), or their **cloned application/agent repo** (Jetski will pin down **one specific flow/entrypoint per eval** inside their repo so `.venv` and `git diff` stay intact).
-  * **3. Prompt Jetski & Approve the Quick Sign-Offs (`build-eval.md`):** Ask Jetski: *"Read `<customer-folder>` and use the `gemini-eval` framework to evaluate migrating `<flow>` to `gemini-3.8-flash`."* Jetski will audit the dataset ([`eval-audit.md`](./eval-audit.md)), ask you to click through quick `(Recommended)` sign-offs on the **test cases (`train`/`test` split)**, **grader/judge**, and **pilot cost estimate**, then build `run-eval.py` (from [`report/runner-scaffold.py`](./report/runner-scaffold.py)) and run the `baseline`.
-  * **4. Run Hill-Climbing & Share the Report (`eval-hillclimb.md` / `cost-hillclimb.md`):** Jetski runs the target model (`v1`) and—if further tuning is needed—iteratively improves prompts/configs on `train` failures while holding `test` out, outputting a self-contained **`report.html`** (via [`report/build-report-lite.py`](./report/build-report-lite.py)), **`narrative.md`**, and PR-ready **`vN/change.patch`** diffs.
+* **1. Purpose & How It Was Built:**
+  * **Eliminate Ad-Hoc Eval Improvisation:** Prompting a coding agent without a playbook causes it to invent a new eval method each time, risking silent flaws like biased grading or prompt overfitting. `gemini-eval` gives Jetski a standardized, two-phase methodology—dataset audits, unbiased grading, locked `train`/`test` splits, and single-lever hill-climbing—to produce accurate, repeatable customer deliverables (`report.html`, `narrative.md`, and `change.patch`).
+  * **Derived from `anthropic-eval`, Tailored for Gemini & Jetski:** Adapted directly from Anthropic's [`anthropic-eval` repo](https://github.com/anthropics/skills/tree/main/skills/claude-api/shared/evals) (introduced in the blog post [*Automating Eval Design and Hillclimbing*](https://claude.dev/blog/automating-eval-design-and-hillclimbing/)), preserving 100% of its evaluation science while porting the Node.js runner/reporter to zero-dependency **Python** ([`report/runner-scaffold.py`](./report/runner-scaffold.py), [`report/build-report-lite.py`](./report/build-report-lite.py)) wired to the `google-genai` SDK, Jetski's native tools (isolated subagents, background runs, sign-off gates), and Gemini-specific optimization levers (`thinking_level` × model tier staircase walk, `temperature`, `response_schema`, context caching diagnostics, and legacy prompt-cruft audits; see [`references/diff.md`](./references/diff.md)).
 
-## Why Use `gemini-eval` Instead of Ad-Hoc Throwaway Eval Scripts in Jetski?
+* **2. Best-Suited Use Cases, Scenarios & Benefits:**
+  * **Target Scenarios:** **(a) Model Upgrades** (Older Gemini $\rightarrow$ Newer Gemini to drive stickiness across accuracy, cost, and latency) and **(b) Competitive Displacement** (Non-Gemini $\rightarrow$ Gemini, while establishing objective thought leadership on Google Cloud's Agent Platform).
+  * **Where It Fits vs. QIL (Fast Long-Tail Wedge):** While **QIL** serves high-stakes strategic engagements with strict onboarding criteria and heavy mutual engineering investment, `gemini-eval` provides a fast, lightweight field motion for **any customer who can benefit from eval help**. Customers often hold preconceived notions in favor of their incumbent model or fear regressions from upgrading—making them reluctant to invest engineering effort upfront. This playbook delivers quick, directional proof on their own cases that Gemini is better and cheaper, plus exact code diffs (`change.patch`), enticing them into deeper production validation and adoption.
 
-* **Prevents Overfitting (Strict Train/Test Isolation):**
-  * **`gemini-eval`:** Enforces a stratified `train` / `test` split (e.g., 60/40) at the runner level ([`report/runner-scaffold.py`](./report/runner-scaffold.py)). Jetski only inspects `train` failures when iterating on prompts or model configs, keeping `test` strictly held-out.
-  * **Throwaway Code:** Usually evaluates and inspects all cases together, causing the agent to tune prompts to pass specific test cases (memorizing the test set).
+* **3. Required Artifacts (Minimum-Viable Dataset vs. Ideal Setup):**
+  * **Why a Minimum-Viable Dataset:** In practice, customers rarely share proprietary harness code, often lack human-verified golden datasets, and hesitate to invest engineering time before seeing initial proof.
+  * **Minimum-Viable Dataset (`50–100+` cases for one scoped flow — *"One flow, one eval"*):**
+    * *All Evals:* `system_instruction`, model parameters config (`temperature`, `thinking_level`/`thinking_budget`, `response_schema`, `max_output_tokens`), production inputs (`prompt` or multi-turn `messages[]`), baseline model outputs (used for blind A/B comparison, never as ground truth), and relevant `skill.md` files.
+    * *Agent Evals Only (No Customer Harness Required):* Tool schemas/declarations and recorded agent trajectories (multi-step tool call arguments, tool outputs, and intermediate steps).
+  * **Ideal Setup (Optional):** Live application entry point / harness in a staging sandbox, human-verified golden dataset, domain rubrics, and (for multi-step coding agents) repo snapshots + test commands (`pytest`).
 
-* **Eliminates Judge Bias (Blind Pairwise & Anti-Self-Bias):**
-  * **`gemini-eval`:** Randomizes candidate order (`Response A` vs. `Response B`) during pairwise judging so the judge cannot tell which output is `baseline` vs. `v1`, and enforces an anti-self-bias rule (never using the model-under-test as its own judge).
-  * **Throwaway Code:** Often grades outputs in the same context window or passes unblinded labels, introducing position bias and self-preference bias.
+* **4. Suited Scenarios & Fidelity Boundaries (Minimum-Viable vs. Ideal):**
+  * **Minimum-Viable Dataset (Offline Trace Replay):**
+    * *High End-to-End Fidelity:* Single-turn model evals and multi-turn agents whose tool calls exist in the recorded trace (even if called in a different order, in parallel, or via a valid shortcut). Open-ended quality is graded via blind pairwise A/B judging paired with a human-calibrated rubric drafted from `system_instruction`/`skill.md`.
+    * *Directional End-to-End Signal (Turn-Level Accuracy):* Multi-turn flows where Gemini's actions diverge and change downstream inputs not captured in static traces—such as unrecorded tool calls, new RAG/search/SQL queries, live coding `edit → test` loops, or shifted multi-turn user replies. (Also cannot catch silent domain errors shared by both models or customer wrapper/proxy bugs.)
+  * **Ideal Setup (Live Entry Point + Golden Data):** Delivers full production fidelity across live multi-turn tool branches, code-test execution loops, deterministic environment end states, warm cache hit rates, and wrapper/proxy plumbing (`thought_signature`, streaming, retries).
 
-* **Separates Real Wins from Random Luck (Noise-Floor Math):**
-  * **`gemini-eval`:** Because LLMs can give slightly different answers on every run, [`report/runner-scaffold.py`](./report/runner-scaffold.py) supports running each case multiple times (`--reps`) and calculates a margin of error (`± CI`). You immediately know if a `+3%` score jump is a real improvement or just random luck.
-  * **Throwaway Code:** Looks at a single-run average with no margin of error, tricking you into keeping prompt changes that only won by chance.
-
-* **Code Checks for Facts + AI Judge for Nuance:**
-  * **`gemini-eval`:** Uses strict Python code to check objective rules (Did the output get cut off at `MAX_TOKENS`? Is the JSON valid? Is the quote actually in the transcript?) and only uses an AI Judge for subjective quality ([`build-eval.md`](./build-eval.md)).
-  * **Throwaway Code:** Relies on an AI Judge to grade everything or uses quick scripts that miss cut-off responses, hallucinated quotes, or broken JSON fields.
-
-* **Fast Parallel Runs Without Overloading the Agent's Memory:**
-  * **`gemini-eval`:** Runs all test cases in parallel in Python (`run-eval.py`), saves outputs to disk (`results.jsonl` and `traces/*.json` per [`report/SCHEMA.md`](./report/SCHEMA.md)), and only asks a helper subagent to read the specific `train` cases that failed ([`eval-hillclimb.md`](./eval-hillclimb.md)).
-  * **Throwaway Code:** Pastes dozens of long transcripts directly into one chat window—slowing down the agent, overflowing its memory, and hurting reasoning quality.
-
-* **Exact Cost Tracking & One-Click Visual Report (`report.html`):**
-  * **`gemini-eval`:** Automatically records input, output, and thinking tokens, latency, and exact dollar cost per call (separating your app's model cost from the AI Judge's cost), then builds an interactive [`report.html`](./report/build-report-lite.py) via [`report/build-report-lite.py`](./report/build-report-lite.py) to compare every round (`baseline` $\rightarrow$ `v1` $\rightarrow$ `v2`).
-  * **Throwaway Code:** Prints messy terminal text that doesn't separate judge cost from model cost and can't be shared with customers as a clean report.
+* **5. How to Get Started:**
+  * **1. Set Up Your Workspace:** Clone `gemini-eval` (`git clone <repo-url> gemini-eval`) alongside a separate customer data folder (`customer-data/`) containing the scoped flow's artifacts.
+  * **2. Kick Off Phase 1 (Dataset Audit, 5-Case Pilot & Baseline Eval):** Prompt Jetski with the target flow, migration pair, and goal/guardrail *(plus the PII pseudonymization recipe if needed)*. Approve **Gate 1** (input dataset & locked 60/40 `train`/`test` split) and **Gate 2** (grader & 5 pilot grades) to run the full baseline comparing the customer's current model vs. Gemini as-is (`v1`).
+  * **3. Run Phase 2 (Failure-Driven Hill-Climbing, `v2` $\rightarrow$ `vN`):** If further tuning is needed, approve **Gate 3** (hill-climbing plan). Jetski's data-isolated subagent diagnoses `train` failures and tests one lever per round (Config/Prompt Hygiene $\rightarrow$ Context Caching $\rightarrow$ Model × `thinking_level` Walk $\rightarrow$ Prompt/`skill.md` Tuning $\rightarrow$ Tool Optimization), keeping only changes that beat the noise floor on unseen `test` until plateau (3 flat rounds).
+  * **4. Share Final Deliverables:** Hand off the self-contained **`report.html`**, executive summary (**`narrative.md`**), and PR-ready **`change.patch`** (`[REQUIRED]` / `[TUNE]`), and guide the customer to validate the winning patch in staging.
 
 ---
 
@@ -82,16 +75,22 @@ A structured, reproducible evaluation and hill-climbing framework for Gemini mod
 
 * **Local Gap-Filling Reference Files Created (`references/`):**
   * [`references/pricing.md`](./references/pricing.md) — **Fills the token-pricing & cost-math gap:** Public skills omit per-token dollar rate cards and eval cost formulas. Provides the $/1M token rate card across Gemini 4 / 3.8 / 3.5 / 2.5 and cross-family judges, exact `cost_usd` calculation (including billed `thinking_tokens` and discounted `cachedContentTokenCount`), and ready-to-paste `_state.json` `prices` maps.
-  * [`references/prompt-audit.md`](./references/prompt-audit.md) — **Fills the pre-migration prompt & config audit gap:** Public migration docs cover SDK/API syntax changes but not prompt-behavior shifts. Provides the 5-part prompt-cruft audit (removing legacy step-by-step rituals, redundant tool checks, and heavy-handed `IMPORTANT!` caps that cause over-refusals or token bloat on `gemini-3.8-flash` / `gemini-4-pro`) and `GenerateContentConfig` normalization (`temperature=1.0`, `thinking_level` vs. `thinking_budget`).
+  * [`references/prompt-audit.md`](./references/prompt-audit.md) — **Fills the pre-migration prompt & config audit gap:** Public migration docs cover SDK/API syntax changes but not prompt-behavior shifts. Provides the 5-part prompt-cruft audit (removing legacy step-by-step rituals, redundant tool checks, and heavy-handed `IMPORTANT!` caps that cause over-refusals or token bloat on `gemini-3.8-flash` / `gemini-4-pro`) and `GenerateContentConfig` normalization (`temperature`, `thinking_level` vs. `thinking_budget`).
   * [`references/cost-optimization.md`](./references/cost-optimization.md) — **Fills the operational cost-checklist & cache-debugging gap:** Public docs show how to call caching/batch APIs but not how to prioritize levers or debug silent cache misses. Provides the 7-step no-eval cost reduction order and context-caching invalidation diagnostics (prefix dynamic-token leaks, mid-session `thinking_config` key changes).
   * [`references/diff.md`](./references/diff.md) — **Fills the framework conversion traceability gap:** Documents the exact architectural, tool, schema, and Python runner mappings from the original Anthropic eval template to `gemini-eval`.
 
 ---
 
-## Next Step: Package as a Built-In Skill
+## Next Steps in Consideration
 
-Right now, engineers clone `gemini-eval` into their workspace. To make it even easier so **any AI engineer can use it automatically across all customer projects without cloning it each time**:
+Right now, engineers clone `gemini-eval` directly into their workspace as an MVP. As we iterate, the following next steps are in consideration to scale adoption and continuous improvement:
 
-* **1. Add a `SKILL.md` Entrypoint:** Add a root `SKILL.md` file with YAML frontmatter (`name: gemini-eval`, `description: ...`) that points Jetski to the playbooks (`.md`) and Python scripts (`report/*.py`) inside this folder.
-* **2. Install Once Globally:** Drop or `git clone` the folder into `~/.gemini/config/skills/gemini-eval/`. Jetski will automatically detect `gemini-eval` as a built-in skill in every workspace.
-* **3. Share with the Team:** Publish the skill repo so any engineer can install it with one command and deliver standardized customer evaluations (`report.html`, `narrative.md`, and `change.patch`) out of the box.
+* **1. Package as a Skill:**
+  * Add a root `SKILL.md` entrypoint with YAML frontmatter (`name: gemini-eval`, `description: ...`) that points Jetski to the playbooks (`.md`) and Python scripts (`report/*.py`) inside this folder.
+  * Allow engineers to install it once globally (e.g., `~/.gemini/config/skills/gemini-eval/`) so Jetski automatically detects and activates `gemini-eval` across all customer workspaces without cloning it each time.
+* **2. Package as a Plugin:**
+  * Bundle the `gemini-eval` skill, reference guides (`references/`), runner/report scripts (`report/`), and optional workspace rules or hooks into a single versioned **plugin** (`plugin.json`).
+  * Enable one-click or single-command installation, version updates, and team-wide distribution so field engineers always run the latest standardized playbook and pricing/model tables.
+* **3. How to Capture Usage & Field Feedback:**
+  * **Automated Post-Run Retrospective:** Have Jetski prompt the engineer for a quick 1-minute reflection at the end of Phase 1 / Phase 2 (or auto-generate a `feedback.json` / retrospective snippet alongside `narrative.md`) capturing what worked, where friction occurred, and which optimization levers delivered the biggest win.
+  * **Opt-In Usage & Outcome Telemetry:** Track lightweight, anonymized run metadata (migration pair, flow type, number of hill-climb rounds, winning lever, and baseline-to-final score/cost delta—with zero customer PII) or provide a one-click feedback link/issue template inside `report.html` to feed real-world learnings directly back into future playbook iterations.
