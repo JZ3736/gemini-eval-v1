@@ -47,7 +47,7 @@ that does run everywhere inflates cost instead of crashing, which is worse, beca
 nothing forces you to notice it. Newer models (`gemini-3.8-flash` and `gemini-4-pro`)
 follow legacy scaffolding MORE literally, so a model swap judged under a dated prompt can
 mis-rank models - and can even *add* cost. The audit is cheap, runs once, and de-noises
-everything after it. Run `references/prompt-audit.md` alongside [`skills/gemini-api-dev/references/migration.md`](https://github.com/google-gemini/gemini-skills/blob/main/skills/gemini-api-dev/references/migration.md) and [`skills/gemini-api-dev/SKILL.md`](https://github.com/google-gemini/gemini-skills/blob/main/skills/gemini-api-dev/SKILL.md) (for legacy model/parameter cleanup, forced step-by-step rituals, redundant tool
+everything after it. Run `references/prompt-audit.md` alongside [`skills/gemini-api-dev/references/migration.md`](https://github.com/google-gemini/gemini-skills/blob/main/skills/gemini-api-dev/references/migration.md) and [`skills/gemini-api-dev/SKILL.md`](https://github.com/google-gemini/gemini-skills/blob/main/skills/gemini-api-dev/SKILL.md) (for legacy model/parameter cleanup, stripping custom `temperature` overrides on Gemini 3.5+ and Gemini 4 so `temperature` is ignored and never tweaked as a hill-climbing lever, removing forced step-by-step rituals and redundant tool
 verifications, and `thinking_config` / `response_schema` modernization) before any
 measurement you intend to keep.
 

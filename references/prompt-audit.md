@@ -14,7 +14,7 @@ Before running baseline vs. candidate comparisons, audit every API call in the f
 | :--- | :--- | :--- |
 | `import google.generativeai as genai` | Deprecated legacy SDK; lacks `ThinkingConfig` levels and unified Vertex/Developer client. | `from google import genai` and `from google.genai import types` (`google-genai >= 2.30.1`). |
 | Fixed integer `thinking_budget=16384` (or `thinking_budget=0` on Pro) | Legacy 2.5 parameter; `gemini-4-pro` cannot disable thinking (`0` errors or is ignored), and fixed high budgets inflate cost on easy cases. | Use `types.ThinkingConfig(thinking_level="LOW" \| "MEDIUM" \| "HIGH" \| "MINIMAL")` so the model scales reasoning dynamically within the tier. |
-| `temperature=0.0` (or `0.1`–`0.3`) carried over from Gemini 1.5/2.0 | Degrades reasoning quality and causes repetitive tool-call loops on Gemini 3+ / 4 thinking models. | Remove the override or set `temperature=1.0` (the recommended default for all Gemini 3.8 and Gemini 4 models). |
+| Custom `temperature` overrides (e.g., `temperature=0.0` or `0.1`–`0.7` carried over from Gemini 1.5/2.0/2.5) | Degrades reasoning quality and causes repetitive tool-call loops on Gemini 3.5+ and Gemini 4 models. **`temperature` is ignored as an optimization knob on Gemini 3.5+ and Gemini 4 and must NEVER be tweaked as a hill-climbing lever.** | Strip the `temperature` override (leave unset at the native default `1.0` for all Gemini 3.5+ and Gemini 4 models) and do not tune it during hill-climbing; use `thinking_level` instead. |
 | Prose-only JSON enforcement (`"Respond ONLY with valid JSON, no ```json fences"`) | Brittle; models occasionally wrap JSON in markdown fences or leave unescaped quotes in explanation strings. | Set `response_mime_type="application/json"` and pass a Pydantic model or `types.Schema` to `response_schema`. |
 | Hard-coded low `max_output_tokens` (e.g., `max_output_tokens=1024`) | `max_output_tokens` covers **both** `thoughts_token_count` and `candidates_token_count`. A low cap truncates visible output (`finishReason="MAX_TOKENS"`) when the model thinks. | Raise `max_output_tokens` to accommodate both thinking + output, or lower `thinking_level` (`"LOW"` / `"MINIMAL"`). |
 
@@ -56,6 +56,6 @@ Scan the system instruction, skill files, and tool descriptions for these five c
 
 ## 3. Running the Step 1 Audit Probe (`cost-hillclimb.md` Step 1)
 
-1. **Fix broken/legacy API config first** (e.g., `google-genai` SDK, `thinking_level`, `temperature=1.0`, sufficient `max_output_tokens`) so the new model runs cleanly.
+1. **Fix broken/legacy API config first** (e.g., `google-genai` SDK, `thinking_level`, stripping any custom `temperature` override on Gemini 3.5+ / Gemini 4—never tweaking `temperature` as a hill-climbing lever—and setting sufficient `max_output_tokens`) so the new model runs cleanly.
 2. **Diff the prompt cleanup separately**: Save the cleaned prompt as `v1` (with `change.md` listing the removed cruft and `change.patch` showing the exact diff) and run it on the eval before starting the Step 2 `model × thinking_level` staircase walk.
 3. **Check the engagement census (`cost-hillclimb.md` Step 3)**: Verify in the `traces/` files that removing a ritual actually reduced `tool_calls` or `output_tokens` / `thinking_tokens`.
